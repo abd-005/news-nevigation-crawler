@@ -79,6 +79,18 @@ Rules:
 - Commit small, coherent changes with short English messages.
 - `node_modules/` and `output/` are gitignored. Do not force-add them.
 
+## Commit Message Convention
+
+- Follow Conventional Commits: `<type>(<scope>): <description>`.
+- Use appropriate types such as `feat`, `fix`, `test`, `docs`, `refactor`, and
+  `chore`.
+- Use a specific, meaningful scope and an imperative, concise description.
+- Group related changes into one coherent commit; separate independent changes
+  when that improves reviewability.
+- Review staged changes before committing.
+- Never stage, commit, or push without explicit user authorization for that
+  operation.
+
 ## Communication Rules
 
 - All responses, explanations, summaries, technical reports, logs, and terminal output MUST be written in English.
