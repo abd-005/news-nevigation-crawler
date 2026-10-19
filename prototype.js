@@ -1,9 +1,14 @@
+"use strict";
 
 const { chromium } = require("playwright");
 const fs = require("node:fs");
 const path = require("node:path");
 
+const { extractNavigation } = require("./lib/extract-navigation");
+const { buildCsv } = require("./lib/csv");
+
 const CHANNEL = "BBC";
+const NAV_SELECTOR = 'nav[aria-label="Primary"]';
 
 const fixture = `
 <!doctype html>
@@ -41,89 +46,29 @@ const fixture = `
 </html>
 `;
 
+async function crawlHtml(browser, html, navSelector = NAV_SELECTOR) {
+  const page = await browser.newPage();
+  try {
+    await page.setContent(html);
+    return await page.evaluate(extractNavigation, navSelector);
+  } finally {
+    await page.close();
+  }
+}
+
 async function main() {
   const browser = await chromium.launch({ headless: true });
 
   try {
-    const page = await browser.newPage();
-    await page.setContent(fixture);
-
-    const rows = await page.locator(
-      'nav[aria-label="Primary"]'
-    ).evaluate((nav) => {
-      const results = [];
-
-      function visit(list, parents = []) {
-        for (const item of list.children) {
-          if (item.tagName !== "LI") continue;
-
-          const link = Array.from(item.children).find(
-            (child) => child.tagName === "A"
-          );
-
-          if (!link) continue;
-
-          const label = link.textContent.trim();
-          const hierarchy = [...parents, label];
-
-          results.push({
-            category: hierarchy[0] || "",
-            subcategory: hierarchy[1] || "",
-            subSubcategory: hierarchy[2] || "",
-            link: link.href,
-          });
-
-          const submenu = Array.from(item.children).find(
-            (child) => child.tagName === "UL"
-          );
-
-          if (submenu) visit(submenu, hierarchy);
-        }
-      }
-
-      const rootList = Array.from(nav.children).find(
-        (child) => child.tagName === "UL"
-      );
-
-      if (rootList) visit(rootList);
-
-      return results;
-    });
-
-    const columns = [
-      "Channel",
-      "Category",
-      "Subcategory",
-      "Sub-Subcategory",
-      "Link",
-    ];
-
-    function escapeCsv(value) {
-      const text = String(value ?? "");
-      return `"${text.replace(/"/g, '""')}"`;
-    }
-
-    const csv = [
-      columns.map(escapeCsv).join(","),
-      ...rows.map((row) =>
-        [
-          CHANNEL,
-          row.category,
-          row.subcategory,
-          row.subSubcategory,
-          row.link,
-        ]
-          .map(escapeCsv)
-          .join(",")
-      ),
-    ].join("\r\n");
+    const rows = await crawlHtml(browser, fixture);
+    const csv = buildCsv(rows, CHANNEL);
 
     const outputDir = path.join(__dirname, "output");
     fs.mkdirSync(outputDir, { recursive: true });
 
     fs.writeFileSync(
       path.join(outputDir, "navigation.csv"),
-      "\uFEFF" + csv,
+      csv,
       "utf8"
     );
 
@@ -134,7 +79,11 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { CHANNEL, NAV_SELECTOR, fixture, crawlHtml, main };
