@@ -161,3 +161,56 @@ test("the original prototype fixture produces the expected five rows", async () 
   );
   assert.ok(!csv.includes("privacy"), "footer link must not appear");
 });
+
+test("a labeled anchor is preferred over an earlier empty icon anchor", async () => {
+  const rows = await rowsFor(`
+    <nav aria-label="Primary"><ul>
+      <li>
+        <a href="https://example.org/news" aria-hidden="true">
+          <span class="icon"></span>
+        </a>
+        <a href="https://example.org/news">News</a>
+      </li>
+    </ul></nav>
+  `);
+  assert.deepEqual(rows, [
+    { hierarchy: ["News"], href: "https://example.org/news" },
+  ]);
+});
+
+test("items with empty or whitespace-only labels produce no rows", async () => {
+  const rows = await rowsFor(`
+    <nav aria-label="Primary"><ul>
+      <li><a href="https://example.org/empty"></a></li>
+      <li><a href="https://example.org/blank">   \n\t  </a></li>
+      <li><a href="https://example.org/news">News</a></li>
+    </ul></nav>
+  `);
+  assert.deepEqual(rows, [
+    { hierarchy: ["News"], href: "https://example.org/news" },
+  ]);
+});
+
+test("structural wrappers around list items preserve hierarchy and order", async () => {
+  const rows = await rowsFor(`
+    <nav aria-label="Primary"><ul>
+      <div class="column">
+        <li><a href="https://example.org/news">News</a>
+          <div class="submenu-wrapper">
+            <ul>
+              <div class="submenu-column">
+                <li><a href="https://example.org/news/world">World</a></li>
+                <li><a href="https://example.org/news/uk">UK</a></li>
+              </div>
+            </ul>
+          </div>
+        </li>
+        <li><a href="https://example.org/sport">Sport</a></li>
+      </div>
+    </ul></nav>
+  `);
+  assert.deepEqual(
+    rows.map((row) => row.hierarchy),
+    [["News"], ["News", "World"], ["News", "UK"], ["Sport"]]
+  );
+});
