@@ -9,11 +9,16 @@ open a news portal and export its navigation menu hierarchy to CSV.
 
 Current status (verify with `git log` and file contents before assuming):
 - `prototype.js` extracts navigation rows from a LOCAL HTML FIXTURE only. It has
-  never been verified against a live website.
-- The CSV schema in the prototype uses a FIXED three-level category hierarchy.
-  The agreed final design uses DYNAMIC category columns (see below). Do not treat
-  the prototype's fixed columns as the final schema.
-- There are no automated tests yet.
+  never been verified against a live website. Live crawling is not implemented;
+  `node prototype.js --url <URL>` validates the URL (http/https only) and makes
+  no requests.
+- `lib/extract-navigation.js` is the generic walker (wrapped anchors, nested
+  root-list wrappers). `lib/extract-noscript-tree.js` handles BBC-style menus
+  whose sublists are siblings of the parent LI. Site-specific source selection
+  (for example, how BBC's no-JS fallback tree is surfaced to the extractor) is
+  a separate concern from these generic extractors.
+- The CSV schema uses DYNAMIC category columns, implemented in `lib/csv.js`.
+- Automated tests exist under `test/` and pass with `npm test`.
 
 ## Tech Stack Conventions
 
