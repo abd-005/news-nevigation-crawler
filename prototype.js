@@ -9,6 +9,7 @@ const { buildCsv } = require("./lib/csv");
 
 const CHANNEL = "BBC";
 const NAV_SELECTOR = 'nav[aria-label="Primary"]';
+const VALID_PROTOCOLS = new Set(["http:", "https:"]);
 
 const fixture = `
 <!doctype html>
@@ -56,7 +57,76 @@ async function crawlHtml(browser, html, navSelector = NAV_SELECTOR) {
   }
 }
 
-async function main() {
+// Validates a user-supplied crawl target URL. Only well-formed
+// http(s) URLs are accepted; anything else is rejected with a clear
+// message. This is a validation-only foundation: no request is made.
+function parseUrlInput(input) {
+  let url;
+  try {
+    url = new URL(input);
+  } catch {
+    return { ok: false, error: `Malformed URL: ${input}` };
+  }
+  if (!VALID_PROTOCOLS.has(url.protocol)) {
+    return {
+      ok: false,
+      error:
+        `Unsupported protocol "${url.protocol}" in URL: ${input}. ` +
+        "Only http: and https: are allowed.",
+    };
+  }
+  return { ok: true, url: url.href };
+}
+
+// Minimal CLI argument parser. Supported:
+//   (no arguments)          run the local HTML fixture workflow
+//   --url <URL>             validate a target URL (no request is made)
+function parseArgs(argv) {
+  const args = { url: null };
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--url") {
+      const value = argv[i + 1];
+      if (value === undefined) {
+        return { ok: false, error: "--url requires a value." };
+      }
+      args.url = value;
+      i += 1;
+    } else {
+      return { ok: false, error: `Unknown argument: ${arg}` };
+    }
+  }
+  return { ok: true, args };
+}
+
+async function main(argv = process.argv.slice(2)) {
+  const parsedArgs = parseArgs(argv);
+  if (!parsedArgs.ok) {
+    console.error(parsedArgs.error);
+    console.error(
+      "Usage: node prototype.js               run the local HTML fixture"
+    );
+    console.error(
+      "       node prototype.js --url <URL>   validate a target URL (no request is made)"
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  if (parsedArgs.args.url !== null) {
+    const parsedUrl = parseUrlInput(parsedArgs.args.url);
+    if (!parsedUrl.ok) {
+      console.error(parsedUrl.error);
+      process.exitCode = 1;
+      return;
+    }
+    console.log(`URL accepted: ${parsedUrl.url}`);
+    console.log(
+      "Live crawling is not implemented yet; no request was made."
+    );
+    return;
+  }
+
   const browser = await chromium.launch({ headless: true });
 
   try {
@@ -86,4 +156,12 @@ if (require.main === module) {
   });
 }
 
-module.exports = { CHANNEL, NAV_SELECTOR, fixture, crawlHtml, main };
+module.exports = {
+  CHANNEL,
+  NAV_SELECTOR,
+  fixture,
+  crawlHtml,
+  parseArgs,
+  parseUrlInput,
+  main,
+};
